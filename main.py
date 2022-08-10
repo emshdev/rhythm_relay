@@ -1,6 +1,7 @@
-from    tkinter    import   Canvas, StringVar, Tk, ttk, IntVar, messagebox
+from    tkinter    import   Canvas, StringVar, Tk, ttk, IntVar, messagebox, Listbox
 from    pandas     import   read_csv
 import  re
+import  time
 
 class Window(Tk):
     def __init__(self):
@@ -13,7 +14,7 @@ class Window(Tk):
         self.attributes('-topmost', True)
 
         # Loading Database
-        self.data = read_csv('songlist.csv', encoding='CP949')
+        self.data = read_csv('songlist.csv', encoding='UTF-8')
         data_filter = (self.data['Start_letter'].notnull()) & (self.data['End_letter'].notnull())
         self.data = self.data.loc[data_filter][['Song_name', 'Start_letter', 'End_letter']]
         self.song_def = self.data.values.tolist()
@@ -45,7 +46,9 @@ class Window(Tk):
         self.marqBool = False
         self.marqBool2 = False
         self.startBool = False
+        self.pauseBool = False
         self.songcount = 0
+        self.start_time = 0
         self.curr_time = 0
         self.songtext = '플레이한 목록\n'
 
@@ -75,7 +78,7 @@ class Window(Tk):
         self.rb_2 = ttk.Radiobutton(up, text='팀전', value=1, variable=self.game_mode, command=self.change_mode)
 
         # Spinbar
-        self.sb = ttk.Spinbox(up1, from_=1, to=50, textvariable=self.num_songs, wrap=True, width=6, state='disabled', command=self.change_num)
+        self.sb = ttk.Spinbox(up1, from_=1, to=50, textvariable=self.num_songs, wrap=True, width=6, state='disabled', command=self.change_num, exportselection=0)
 
         # Start Button
         self.start_button = ttk.Button(up, text='출근', command=self.start_game)
@@ -115,6 +118,7 @@ class Window(Tk):
         mid.columnconfigure(0, minsize=90)
         mid.columnconfigure(1, weight=1)
         mid1 = ttk.Frame(mid)
+        mid2 = ttk.Frame(mid)
 
         # Variables
         self.chk_var = IntVar(value=0)
@@ -133,12 +137,16 @@ class Window(Tk):
         # Inputs (column 1)
         self.song_str = StringVar()
         self.song_str.trace('w', self.update_songlist)
-        self.input = ttk.Combobox(mid, textvariable=self.song_str, state='disabled')
-        self.input['values'] = tuple(self.song_names)
+        self.input = ttk.Entry(mid, textvariable=self.song_str, state='disabled')
         
         self.chk = ttk.Checkbutton(mid1, variable=self.chk_var, state='disabled', command=self.additional)
-        self.cb_1 = ttk.Combobox(mid1, values=initials, state='disabled')
+        self.cb_1 = ttk.Combobox(mid1, values=initials, state='disabled', exportselection=0)
         self.cb_1.current(0)
+
+        self.lb = Listbox(mid2, listvariable=StringVar(value=self.song_names), activestyle='none', selectmode='browse', state='disabled', exportselection=0, height=20)
+        self.scroll = ttk.Scrollbar(mid2, orient='vertical', command=self.lb.yview)
+        self.lb['yscrollcommand'] = self.scroll.set
+        self.lb.bind('<<ListboxSelect>>', lambda e: self.add_button.configure(state='normal'))
 
         self.input.grid(column=1, row=0, sticky='nwes', pady=(0, 5))
         self.chk.pack(side='left')
@@ -148,8 +156,12 @@ class Window(Tk):
         # Buttons
         self.add_button = ttk.Button(mid, text='곡 추가', state='disabled', command=self.add_song)
         self.pause_button = ttk.Button(mid, text='일시정지', state='disabled', command=self.pause_game)
-        self.add_button.grid(column=1, row=2, sticky='news')
-        self.pause_button.grid(column=0, row=2, sticky='news')
+        self.add_button.grid(column=1, row=3, sticky='news')
+        self.pause_button.grid(column=0, row=3, sticky='news', padx=(0, 5))
+
+        self.lb.pack(fill='both', side='left', expand=1)
+        self.scroll.pack(fill='y', side='right')
+        mid2.grid(column=0, row=2, columnspan=2, sticky='nswe', pady=(0, 5))
 
         mid.pack(fill='both', side='top', padx=5, pady=5)
 
@@ -200,7 +212,7 @@ class Window(Tk):
             self.input.focus()
             self.cb_1['state'] = 'disabled'
             self.chk['state'] = 'normal'
-            self.add_button['state'] = 'normal'
+            self.lb['state'] = 'normal'
 
             # Current Song
             self.can1.itemconfig('sn', text='첫 곡을\n플레이 해주세요!', font=self.font6)
@@ -209,6 +221,7 @@ class Window(Tk):
                 self.timerBool = True
                 self.start_button['text'] = '퇴근'
                 self.pause_button['state'] = 'normal'
+                self.start_time = time.time()
                 self.timer()
             
             else:   # Team Match (TM)
@@ -222,12 +235,13 @@ class Window(Tk):
             else:
                 # Remaining
                 self.timerBool = False
+                self.pauseBool = False
 
                 # Gamemode
                 self.start_button['text'] = '리셋'
 
                 # Next Song
-                self.input.delete(0, 'end')
+                self.song_str.set('')
                 self.cb_1.current(0)
                 self.chk_var.set(0)
                 self.input['state'] = 'disabled'
@@ -235,6 +249,9 @@ class Window(Tk):
                 self.chk['state'] = 'disabled'
                 self.add_button['state'] = 'disabled'
                 self.pause_button['state'] = 'disabled'
+                self.lb['state'] = 'disabled'
+
+                self.pause_button['text'] = '일시정지'
 
                 # Current Song
                 self.can1.itemconfig('ni', text='끝')
@@ -261,35 +278,51 @@ class Window(Tk):
             self.marqBool = False
 
             # Songlist
-            self.songlist.clear()
-            [self.songlist.append(x) for x in self.song_def if x not in self.songlist]
+            self.startBool = False
+            for song in self.list_used:
+                self.songlist.append(song)
+                self.song_names.append(song[0])
             self.list_used.clear()
 
             self.marqBool2 = False
             self.can2.itemconfig('sl', text='아직\n곡이\n없습니다!', font=self.font5)
             self.can2.coords('sl', 122, 140)
-            self.songlist = '플레이한 목록\n'
+            self.songtext = '플레이한 목록\n'
 
     # Timer For FFA
     def timer(self):
-        hrs = self.curr_time // 3600
-        mins = (self.curr_time % 3600) // 60
-        secs = self.curr_time % 60
-        self.label4['text'] = '{:02}:{:02}:{:02}'.format(hrs, mins, secs)
+        self.curr_time = time.time()
         if self.timerBool:
-            self.curr_time += 1
-            self.after(1000, self.timer)
+            total_time = int(self.curr_time - self.start_time)
+            hrs =  total_time// 3600
+            mins = (total_time % 3600) // 60
+            secs = total_time % 60
+            self.label4['text'] = '{:02}:{:02}:{:02}'.format(hrs, mins, secs)
+            if self.pauseBool:
+                self.start_time = time.time() - total_time
+            self.after(1, self.timer)
     
     def pause_game(self):
-        if self.timerBool:
-            self.timerBool = False
+        if not self.pauseBool:
+            self.pauseBool = True
             self.pause_button['text'] = '재개'
+
+            self.input['state'] = 'disabled'
+            self.chk['state'] = 'disabled'
+            self.cb_1['state'] = 'disabled'
             self.add_button['state'] = 'disabled'
+            self.lb['state'] = 'disabled'
+            self.lb.select_clear(0, 'end')
         else:
-            self.timerBool = True
+            self.pauseBool = False
             self.pause_button['text'] = '일시정지'
+            
+            self.input['state'] = 'normal'
+            self.chk['state'] = 'normal'
+            if self.chk_var.get() == 1:
+                self.cb_1['state'] = 'normal'
             self.add_button['state'] = 'normal'
-            self.timer()
+            self.lb['state'] = 'normal'
 
     # Additional Initial
     def additional(self):
@@ -308,81 +341,82 @@ class Window(Tk):
     # Adding a Song to the Songlist
     def add_song(self):
         # Input
-        songName = self.input.get()
+        songName = self.lb.get(self.lb.curselection())
         curr_song = self.find_song(songName)
-        if curr_song == -1:
-            messagebox.showerror('리듬 끝말잇기', '해당 곡이 리스트에 없습니다.\n다시 시도해주세요')
-        else:
-            alpha = self.songlist[curr_song][2]
-            self.list_used.append(self.songlist[curr_song])
-            self.songlist.remove(self.songlist[curr_song])
+        alpha = self.songlist[curr_song][2]
+        self.list_used.append(self.songlist[curr_song])
+        self.songlist.remove(self.songlist[curr_song])
+        self.song_names.remove(songName)
 
-            if self.chk_var.get() == 1:
-                alpha = self.cb_1.get()
-            
-            if alpha.isnumeric():
-                switch = {
-                    '1': '1/E',
-                    '2': '2/O',
-                    '3': '3/E',
-                    '4': '4/R',
-                    '5': '5/E',
-                    '6': '6/X',
-                    '7': '7/N',
-                    '8': '8/T',
-                    '9': '9/E',
-                    '0': '0/O'
-                }
-                alpha = switch.get(alpha)
-
-            # Reset Input
-            self.input.delete(0, 'end')
-            self.input.set(alpha)
-            self.input.focus()
-            self.cb_1.current(0)
-            self.chk_var.set(0)
-            self.cb_1['state'] = 'disabled'
+        if self.chk_var.get() == 1:
+            alpha = self.cb_1.get()
         
-            # Canvas
-            self.can1.itemconfig('sn', text=songName)
-            self.can1.itemconfig('ni', text=alpha)
-            self.can1.coords('txt', 70, 130)
-            self.can1.coords('ni', 190, 120)
-            
-            # Marquee
-            pos = self.can1.bbox('sn')
-            if pos[2] - pos[0] >= 230 and not self.marqBool:
-                self.can1.coords('sn', 10 + (pos[2] - pos[0]) // 2, 50)
-                self.marqBool = True
-                self.marquee1()
-            elif pos[2] - pos[0] < 230:
-                self.can1.coords('sn', 122, 50)
-                self.marqBool = False
+        if alpha.isnumeric():
+            switch = {
+                '1': '1/E',
+                '2': '2/O',
+                '3': '3/E',
+                '4': '4/R',
+                '5': '5/E',
+                '6': '6/X',
+                '7': '7/N',
+                '8': '8/T',
+                '9': '9/E',
+                '0': '0/O'
+            }
+            alpha = switch.get(alpha)
 
-            # Song List
+        # Reset Input
+        self.lb.see(0)
+        self.lb.select_clear(0, 'end')
+        self.song_str.set(alpha)
+        self.input.focus()
+        self.cb_1.current(0)
+        self.chk_var.set(0)
+        self.cb_1['state'] = 'disabled'
+        self.add_button['state'] = 'disabled'
+    
+        # Canvas
+        self.can1.itemconfig('sn', text=songName)
+        self.can1.itemconfig('ni', text=alpha)
+        self.can1.coords('txt', 70, 130)
+        self.can1.coords('ni', 190, 120)
+        
+        # Marquee
+        pos = self.can1.bbox('sn')
+        if pos[2] - pos[0] >= 230 and not self.marqBool:
+            self.can1.coords('sn', 10 + (pos[2] - pos[0]) // 2, 50)
+            self.marqBool = True
+            self.marquee1()
+        elif pos[2] - pos[0] < 230:
+            self.can1.coords('sn', 122, 50)
+            self.marqBool = False
+
+        # Song List
+        if not self.startBool:
             self.startBool = True
-            self.songtext = self.songtext + songName + '\n'
-            self.can2.itemconfig('sl', text=self.songtext, font=self.font7)
-            pos2 = self.can2.bbox('sl')
-            if pos2[3] - pos[1] >= 290 and not self.marqBool2:
-                self.marqBool2 = True
-                self.marquee2()
-            else: 
-                self.can2.coords('sl', 122, 10 + (pos2[3] - pos2[1]) // 2)
+        self.songtext = self.songtext + songName + '\n'
+        self.can2.itemconfig('sl', text=self.songtext, font=self.font7)
+        pos2 = self.can2.bbox('sl')
+        if pos2[3] - pos[1] >= 290 and not self.marqBool2:
+            self.marqBool2 = True
+            self.marquee2()
+        else: 
+            self.can2.coords('sl', 122, 10 + (pos2[3] - pos2[1]) // 2)
 
-            # For TM
-            if self.game_mode.get() == 1:
-                self.songcount -= 1
-                self.label4['text'] = '{}곡 남음'.format(self.songcount)
+        # For TM
+        if self.game_mode.get() == 1:
+            self.songcount -= 1
+            self.label4['text'] = '{}곡 남음'.format(self.songcount)
 
-                # No More Song
-                if self.songcount == 0:
-                    self.can1.itemconfig('ni', text='끝')
-                    self.input['state'] = 'disabled'
-                    self.cb_1['state'] = 'disabled'
-                    self.chk['state'] = 'disabled'
-                    self.start_button['state'] = 'normal'
-                    self.add_button['state'] = 'disabled'
+            # No More Song
+            if self.songcount == 0:
+                self.can1.itemconfig('ni', text='끝')
+                self.input['state'] = 'disabled'
+                self.cb_1['state'] = 'disabled'
+                self.chk['state'] = 'disabled'
+                self.start_button['state'] = 'normal'
+                self.lb['state'] = 'disabled'
 
     # Marquee Effect 1
     def marquee1(self):
@@ -403,13 +437,14 @@ class Window(Tk):
                 self.can2.move('sl', 0, -1)
             self.after(1000 // 45, self.marquee2)
 
-    def update_songlist(self, *args):
+    def update_songlist(self, *argv):
+        self.lb.see(0)
         if self.song_str == '\0':
-            self.input['values'] = tuple(self.song_names)
+            self.lb['listvariable'] = StringVar(value=self.song_names)
         else:
             typed_song = self.input.get()
             avail_songs = [x for x in self.song_names if re.match(typed_song, x, re.I)]
-            self.input['values'] = tuple(avail_songs)
+            self.lb['listvariable'] = StringVar(value=avail_songs)
 
 if __name__ == '__main__':
     app = Window()
