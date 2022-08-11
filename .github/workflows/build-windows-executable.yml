@@ -1,0 +1,29 @@
+name: Upload a Windows executable file for every commit on main branch
+
+on: [push]
+
+jobs:
+  build-windows-executable:
+    runs-on: windows-latest
+    steps:
+      - name: Step 1 - Checkout a main branch
+        uses: actions/checkout@v3
+      - name: Step 2 - Setup a Python environment with requirements
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - name: Step 3 - Install all dependencies
+        run: pip install -r requirements.txt
+      - name: Step 4 - Build a Windows executable file
+        run: pyinstaller --onefile --noconsole --distpath . --name RhythmRelay main.py
+      - name: Step 5 - Compress an executable file with a songlist file
+        uses: vimtor/action-zip@v1
+        with:
+          files: RhythmRelay.exe songlist.csv
+          dest: RhythmRelay-Windows-x64-${{ github.sha }}.zip
+      - name: Step 6 - Upload an artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: rhythm-relay-${{ github.sha }}
+          path: ${{ github.workspace }}/RhythmRelay-Windows-x64-${{ github.sha }}.zip
