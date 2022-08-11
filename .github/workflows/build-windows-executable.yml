@@ -16,7 +16,7 @@ jobs:
       - name: Step 3 - Install all dependencies
         run: pip install -r requirements.txt
       - name: Step 4 - Build a Windows executable file
-        run: pyinstaller main.py
+        run: pyinstaller --onefile --noconsole main.py
       - name: Step 5 - Compress an executable file with a songlist file
         uses: vimtor/action-zip@v1
         with:
