@@ -1,4 +1,4 @@
-name: Release a Windows executable file for every commit on main branch
+name: Upload a Windows executable file for every commit on main branch
 
 on: [push]
 
@@ -11,7 +11,7 @@ jobs:
       - name: Step 2 - Setup a Python environment with requirements
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10.6'
+          python-version: '3.10.5'
           cache: 'pip'
       - name: Step 3 - Install all dependencies
         run: pip install -r requirements.txt
@@ -20,10 +20,11 @@ jobs:
       - name: Step 5 - Compress an executable file with a songlist file
         uses: vimtor/action-zip@v1
         with:
-          files: dist/main.exe songlist.csv
+          files: dist/ songlist.csv
           recursive: false
           dest: rhythm_relay.zip
-      - name: Step 6 - Release an artifact
-        uses: softprops/action-gh-release@v1
+      - name: Step 6 - Upload an artifact
+        uses: actions/upload-artifact@v3
         with:
-          files: rhythm_relay.zip
+          name: my-artifact
+          path: ${{ github.workspace }}/rhythm_relay.zip
