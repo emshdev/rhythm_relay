@@ -11,20 +11,19 @@ jobs:
       - name: Step 2 - Setup a Python environment with requirements
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10.5'
+          python-version: '3.10'
           cache: 'pip'
       - name: Step 3 - Install all dependencies
         run: pip install -r requirements.txt
       - name: Step 4 - Build a Windows executable file
-        run: pyinstaller --onefile --noconsole main.py
+        run: pyinstaller --onefile --noconsole --distpath . --name RhythmRelay main.py
       - name: Step 5 - Compress an executable file with a songlist file
         uses: vimtor/action-zip@v1
         with:
-          files: dist/ songlist.csv
-          recursive: false
-          dest: rhythm_relay.zip
+          files: RhythmRelay.exe songlist.csv
+          dest: RhythmRelay-Windows-x64-${{ github.sha }}.zip
       - name: Step 6 - Upload an artifact
         uses: actions/upload-artifact@v3
         with:
-          name: my-artifact
-          path: ${{ github.workspace }}/rhythm_relay.zip
+          name: rhythm-relay-${{ github.sha }}
+          path: ${{ github.workspace }}/RhythmRelay-Windows-x64-${{ github.sha }}.zip
