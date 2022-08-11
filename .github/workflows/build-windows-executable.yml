@@ -18,11 +18,12 @@ jobs:
       - name: Step 4 - Build a Windows executable file
         run: pyinstaller main.py
       - name: Step 5 - Compress an executable file with a songlist file
-        uses: montudor/action-zip@v1
+        uses: vimtor/action-zip@v1
         with:
-          args: zip -qq -r rhythm_relay.zip dist/main.exe songlist.csv
+          files: dist/main.exe songlist.csv
+          recursive: false
+          dest: rhythm_relay.zip
       - name: Step 6 - Release an artifact
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: rhythm_relay.zip
