@@ -12,7 +12,7 @@ Twitch Streamer Content project by smh0505 known as "블롭허니버터" on Twit
 * A single CSV file will have all song name possible within the content.
 * To parse data, Pandas is used.
 
-#리듬 끝말잇기 툴
+# 리듬 끝말잇기 툴
 
 ## 프로젝트의 목적
 * 트위치 스트리머 '아르파_' 님의 리듬 끝말잇기 컨텐츠에 더 나은 편의성을 제공하기 위해 만들어졌습니다.
