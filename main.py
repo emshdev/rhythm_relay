@@ -1,4 +1,4 @@
-from    tkinter    import   Canvas, StringVar, Tk, ttk, IntVar, messagebox, Listbox
+from    tkinter    import   Canvas, StringVar, Tk, ttk, IntVar, messagebox, Listbox, Toplevel
 from    pandas     import   read_csv
 import  re, time
 
@@ -76,6 +76,7 @@ class Window(Tk):
         self.marqBool2 = False
         self.startBool = False
         self.pauseBool = False
+        self.editBool = False
         
         # Ints and Doubles
         self.songcount = 0
@@ -151,7 +152,7 @@ class Window(Tk):
         self.cb_1.current(0)
 
         # Listbox with Scrollbar
-        self.lb = Listbox(mid2, listvariable=StringVar(value=self.song_names), activestyle='none', selectmode='browse', state='disabled', exportselection=0, height=20)
+        self.lb = Listbox(mid2, listvariable=StringVar(value=self.song_names), activestyle='none', selectmode='browse', state='disabled', exportselection=0, height=15)
         self.scroll = ttk.Scrollbar(mid2, orient='vertical', command=self.lb.yview)
         self.lb['yscrollcommand'] = self.scroll.set
         self.lb.bind('<<ListboxSelect>>', lambda e: self.add_button.configure(state='normal'))
@@ -159,6 +160,7 @@ class Window(Tk):
         # Buttons
         self.add_button = ttk.Button(mid, text='곡 추가', state='disabled', command=self.add_song)
         self.pause_button = ttk.Button(mid, text='일시정지', state='disabled', command=self.pause_game)
+        self.edit_button = ttk.Button(mid, text='곡 수정', state='disabled', command=self.edit_initial)
 
         # Placing
         ttk.Label(mid, text='곡 제목').grid(column=0, row=0, sticky='news', pady=(0, 5))
@@ -173,8 +175,9 @@ class Window(Tk):
         self.scroll.pack(fill='y', side='right')
         mid2.grid(column=0, row=2, columnspan=2, sticky='nswe', pady=(0, 5))
 
-        self.add_button.grid(column=1, row=3, sticky='news')
-        self.pause_button.grid(column=0, row=3, sticky='news', padx=(0, 5))
+        self.add_button.grid(column=1, row=3, sticky='news', pady=(0, 5))
+        self.pause_button.grid(column=0, row=3, rowspan=2, sticky='news', padx=(0, 5))
+        self.edit_button.grid(column=1, row=4, sticky='news')
 
         mid.pack(fill='both', side='top', padx=5, pady=5)
 
@@ -296,7 +299,10 @@ class Window(Tk):
                 self.cb_1['state'] = 'normal'
             self.add_button['state'] = 'normal'
             self.lb['state'] = 'normal'
-            self.lb.see(self.lb.curselection())
+            try:
+                self.lb.see(self.lb.curselection())
+            except:
+                self.lb.see(0)
 
     # additional: Updates the end letter (When the reroll roulette is spinned)
     def additional(self):
@@ -309,7 +315,7 @@ class Window(Tk):
     # └Return:  self.songlist.index(song) or -1
     def find_song(self, songName:str):
         for song in self.songlist:
-            if re.match(songName, song[0], re.I):
+            if songName == song[0]:
                 return self.songlist.index(song)
         return -1
     
@@ -347,6 +353,9 @@ class Window(Tk):
 
     # input_reset: Clears self.input and deselects any item in self.lb
     def input_reset(self):
+        self.lb.see(0)
+        self.lb.select_clear(0, 'end')
+
         self.song_str.set('')
         self.input.focus()
 
@@ -354,9 +363,6 @@ class Window(Tk):
         self.cb_1['state'] = 'disabled'
 
         self.chk_var.set(0)
-
-        self.lb.see(0)
-        self.lb.select_clear(0, 'end')
 
         self.add_button['state'] = 'disabled'
 
@@ -377,6 +383,97 @@ class Window(Tk):
             self.start_button['state'] = 'normal'
             self.start_button['text'] = '리셋'
             self.can1.itemconfig('ni', text='끝')
+
+            self.edit_button['state'] = 'disabled'
+
+    # Child Window
+    # For editting the end letter
+
+    def edit_initial(self):
+        # Blocking other inputs while this child window is open
+        self.input['state'] = 'disabled'
+        self.chk['state'] = 'disabled'
+        self.cb_1['state'] = 'disabled'
+        self.lb['state'] = 'disabled'
+        self.add_button['state'] = 'disabled'
+        self.edit_button['state'] = 'disabled'
+
+        # Child window initialization
+        self.child_win = Toplevel(self)
+        self.child_win.geometry('250x250')
+        self.child_win.resizable(0, 0)
+        self.child_win.attributes('-topmost', True)
+        self.child_win.protocol('WM_DELETE_WINDOW', self.restore_initial)
+
+        # Canvas
+        self.can3 = Canvas(self.child_win, width=240, height=80)
+        self.can3.pack(side='top', pady=2)
+
+        self.can3.create_text(122, 37, text=self.list_used[-1][0], font=self.font6, justify='center', fill='black', tags=('sn'))
+        pos = self.can3.bbox('sn')
+        if pos[2] - pos[0] >= 230:
+            self.can3.coords('sn', 10 + (pos[2] - pos[0]) // 2, 37)
+            self.editBool = True
+            self.last_song()
+        
+        # Frame
+        bottom = ttk.Frame(self.child_win)
+        bottom.columnconfigure(0, weight=1)
+        bottom.columnconfigure(1, weight=1)
+
+        # Left: current letter
+        ttk.Label(bottom, text='현재 이니셜', font=self.font1).grid(column=0, row=0)
+        ttk.Label(bottom, text=self.alpha, font=self.font5).grid(column=0, row=1, padx=5, pady=5)
+
+        # Right: replacing letter
+        initials = [
+            'A', 'B', 'C', 'D', 'E', 'F',
+            'G', 'H', 'I', 'J', 'K', 'L',
+            'M', 'N', 'O', 'P', 'Q', 'R',
+            'S', 'T', 'U', 'V', 'W', 'X',
+            'Y', 'Z'
+        ]
+        ttk.Label(bottom, text='바꿀 이니셜', font=self.font1).grid(column=1, row=0)
+        self.end_letter = ttk.Combobox(bottom, values=initials, state='readonly', font=self.font5, width=2, exportselection=0, justify='center')
+        self.end_letter.current(0)
+        self.end_letter.grid(column=1, row=1, padx=5, pady=5)
+
+        # Buttons
+        ttk.Button(bottom, text='이니셜 변경', command=self.change_initial).grid(column=0, row=2, padx=5, sticky='nswe')
+        ttk.Button(bottom, text='취소', command=self.restore_initial).grid(column=1, row=2, padx=5, sticky='nswe')
+
+        bottom.pack(fill='both', side='top', expand=1, padx=5, pady=5)
+
+    # restore_initial (Child Window): closes the child window (without any changes)
+    def restore_initial(self):
+        self.input['state'] = 'normal'
+        self.chk['state'] = 'normal'
+        self.lb['state'] = 'normal'
+
+        if self.chk_var.get() == 1:
+            self.cb_1['state'] = 'readonly'
+
+        self.edit_button['state'] = 'normal'
+        self.editBool = False
+        self.child_win.destroy()
+    
+    # change_initial (Child Window): replaces the end letter, then calls self.restore_initial
+    def change_initial(self):
+        self.alpha = self.end_letter.get()
+        self.can1.itemconfig('ni', text=self.alpha)
+        self.input_reset()
+        self.song_str.set(self.alpha)
+        self.restore_initial()
+
+    # last_song (Child Window): marquee effect for the child window
+    def last_song(self):
+        if self.editBool:
+            pos = self.can3.bbox('sn')
+            if pos[2] < 0:
+                self.can3.coords('sn', 240 + (pos[2] - pos[0]) // 2, 37)
+            else:
+                self.can3.move('sn', -2, 0)
+            self.after(1000 // 30, self.last_song)
 
     # Functions
     # Main functions with combination of methods
@@ -434,73 +531,78 @@ class Window(Tk):
         # Input
         songName = self.lb.get(self.lb.curselection())
         curr_song = self.find_song(songName)
-        alpha = self.songlist[curr_song][2]
 
-        # End letter
-        if self.chk_var.get() == 1:
-            alpha = self.cb_1.get()
-        if alpha.isnumeric():
-            switch = {
-                '1': '1/E',
-                '2': '2/O',
-                '3': '3/E',
-                '4': '4/R',
-                '5': '5/E',
-                '6': '6/X',
-                '7': '7/N',
-                '8': '8/T',
-                '9': '9/E',
-                '0': '0/O'
-            }
-            alpha = switch.get(alpha)
-
-        # Reset input
-        self.input_reset()
-        self.song_str.set(alpha)
-    
-        # Modify lists
-        self.list_used.append(self.songlist[curr_song])
-        self.songlist.remove(self.songlist[curr_song])
-        self.song_names.remove(songName)
-
-        # Start game
-        if not self.startBool:
-            self.startBool = True
-            self.can1.coords('txt', 70, 130)
-            self.can1.coords('ni', 190, 120)
-
-        # Texts
-        self.can1.itemconfig('sn', text=songName)
-        self.can1.itemconfig('ni', text=alpha)
-        self.songtext = self.songtext + songName + '\n'
-        self.can2.itemconfig('sl', text=self.songtext, font=self.font7)
-
-        # marquee1
-        pos = self.can1.bbox('sn')
-        self.can1.coords('sn', 122, 50)
-        if pos[2] - pos[0] >= 230:
-            self.can1.coords('sn', 10 + (pos[2] - pos[0]) // 2, 50)
-            if not self.marqBool:
-                self.marqBool = True
-                self.marquee1()
+        if curr_song == -1: 
+            messagebox.showerror('리듬 끝말잇기', '곡이 선택되지 않은 상태입니다.\n곡을 선택해주세요.')
         else:
-            self.marqBool = False
+            self.alpha = self.songlist[curr_song][2]
 
-        # marquee2
-        pos2 = self.can2.bbox('sl')
-        if pos2[3] - pos[1] >= 290:
-            if not self.marqBool2:
-                self.marqBool2 = True
-                self.marquee2()
-        else:
-            self.can2.coords('sl', 122, 10 + (pos2[3] - pos2[1]) // 2)
-            
-        # Countdown (TM Only)
-        if self.game_mode.get() == 1:
-            self.songcount -= 1
-            self.label4['text'] = '{}곡 남음'.format(self.songcount)
-            if self.songcount == 0:
-                self.input_switch(False)
+            # End letter
+            if self.chk_var.get() == 1:
+                self.alpha = self.cb_1.get()
+            if self.alpha.isnumeric():
+                switch = {
+                    '1': '1/E',
+                    '2': '2/O',
+                    '3': '3/E',
+                    '4': '4/R',
+                    '5': '5/E',
+                    '6': '6/X',
+                    '7': '7/N',
+                    '8': '8/T',
+                    '9': '9/E',
+                    '0': '0/O'
+                }
+                self.alpha = switch.get(self.alpha)
+
+            # Reset input
+            self.input_reset()
+            self.song_str.set(self.alpha)
+        
+            # Modify lists
+            self.list_used.append(self.songlist[curr_song])
+            self.songlist.remove(self.songlist[curr_song])
+            self.song_names.remove(songName)
+
+            # Start game
+            if not self.startBool:
+                self.startBool = True
+                self.can1.coords('txt', 70, 130)
+                self.can1.coords('ni', 190, 120)
+                self.edit_button['state'] = 'normal'
+
+            # Texts
+            self.can1.itemconfig('sn', text=songName)
+            self.can1.itemconfig('ni', text=self.alpha)
+            self.songtext = self.songtext + songName + '\n'
+            self.can2.itemconfig('sl', text=self.songtext, font=self.font7)
+
+            # marquee1
+            pos = self.can1.bbox('sn')
+            self.can1.coords('sn', 122, 50)
+            if pos[2] - pos[0] >= 230:
+                self.can1.coords('sn', 10 + (pos[2] - pos[0]) // 2, 50)
+                if not self.marqBool:
+                    self.marqBool = True
+                    self.marquee1()
+            else:
+                self.marqBool = False
+
+            # marquee2
+            pos2 = self.can2.bbox('sl')
+            if pos2[3] - pos[1] >= 290:
+                if not self.marqBool2:
+                    self.marqBool2 = True
+                    self.marquee2()
+            else:
+                self.can2.coords('sl', 122, 10 + (pos2[3] - pos2[1]) // 2)
+                
+            # Countdown (TM Only)
+            if self.game_mode.get() == 1:
+                self.songcount -= 1
+                self.label4['text'] = '{}곡 남음'.format(self.songcount)
+                if self.songcount == 0:
+                    self.input_switch(False)
 
 if __name__ == '__main__':
     app = Window()
