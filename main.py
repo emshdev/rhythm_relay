@@ -1,5 +1,6 @@
 from    tkinter    import   Canvas, StringVar, Tk, ttk, IntVar, messagebox, Listbox, Toplevel
 from    pandas     import   read_csv
+from    pygame     import   mixer
 import  re, time
 
 class Window(Tk):
@@ -8,9 +9,12 @@ class Window(Tk):
 
         # Window Initialization
         self.title('리듬 끝말잇기')
-        self.geometry('535x565')
+        self.geometry('535x645')
         self.resizable(0, 0)
         self.attributes('-topmost', True)
+
+        mixer.init()
+        mixer.music.load('Didn\'t Fall! (You Win).mp3')
 
         # Data Initialization
         self.data_init()
@@ -20,11 +24,14 @@ class Window(Tk):
         self.rightFrame = ttk.Frame(self)
 
         self.font_init()
-        self.mode_init()
+        self.count_init()
         ttk.Separator(self.leftFrame, orient='horizontal').pack(fill='x', padx=5, side='top')
         ttk.Label(self.leftFrame, text='절취선', justify='center').pack(fill='y', pady=5, side='top')
         ttk.Separator(self.leftFrame, orient='horizontal').pack(fill='x', padx=5, side='top')
         self.nextSong_init()
+        ttk.Separator(self.leftFrame, orient='horizontal').pack(fill='x', padx=5, side='top')
+        self.countdown_init()
+
         self.rem_init()
         ttk.Separator(self.rightFrame, orient='horizontal').pack(fill='x', padx=5, side='top')
         self.currSong_init()
@@ -49,7 +56,7 @@ class Window(Tk):
         self.data = self.data.loc[data_filter][['Song_name', 'Start_letter', 'End_letter']]
 
         # Creating lists based on self.data
-        self.song_def = self.data.values.tolist()   # Back-up
+        self.song_def = self.data.values.tolist()   # Back-f
         self.songlist = []      # Actual songlist (duplicates removed)
         [self.songlist.append(x) for x in self.song_def if x not in self.songlist]
         self.list_used = []     # List of used songs (empty as default)
@@ -87,47 +94,41 @@ class Window(Tk):
         self.songtext = '플레이한 목록\n'
 
     # Gamemode
-    def mode_init(self):
+    def count_init(self):
         # Frame
-        up = ttk.Frame(self.leftFrame)
-        up.columnconfigure(0, minsize=70)
-        up.columnconfigure(1, weight=1)
-        up.columnconfigure(2, weight=1)
-        up1 = ttk.Frame(up)
+        f = ttk.Frame(self.leftFrame)
+        f.columnconfigure(0, weight=1)
+        f.columnconfigure(1, weight=1)
+        f.columnconfigure(2, weight=1)
+        f1 = ttk.Frame(f)
         
-        # Radiobuttons
-        self.game_mode = IntVar(value=0)
-        self.num_songs = IntVar(value=1)
-        self.rb_1 = ttk.Radiobutton(up, text='개인전', value=0, variable=self.game_mode, command=self.change_mode)
-        self.rb_2 = ttk.Radiobutton(up, text='팀전', value=1, variable=self.game_mode, command=self.change_mode)
-
         # Spinbar
-        self.sb = ttk.Spinbox(up1, from_=1, to=50, textvariable=self.num_songs, wrap=True, width=6, state='disabled', command=self.change_num, exportselection=0)
+        self.num_songs = IntVar(value=10)
+        self.sb = ttk.Spinbox(f1, from_=1, to=50, textvariable=self.num_songs, wrap=True, 
+            state='readonly', width=5, command=self.change_num, exportselection=0)
 
         # Start Button
-        self.start_button = ttk.Button(up, text='출근', command=self.start_game)
+        self.start_button = ttk.Button(f, text='출근', command=self.start_game)
         
         # Placing
-        ttk.Label(up, text='현재 설정').grid(column=0, row=0, columnspan=2, sticky='news')
-        self.rb_1.grid(column=0, row=1, columnspan=2, sticky='news')
-        self.rb_2.grid(column=0, row=2, sticky='nwes')
+        ttk.Label(f, text='시작 곡 수').grid(column=0, row=0, sticky='news')
 
-        ttk.Label(up1, text='곡').pack(fill='both', side='right', expand=1)
+        ttk.Label(f1, text='곡').pack(fill='both', side='right', expand=1)
         self.sb.pack(fill='both', side='right', expand=1)
-        up1.grid(column=1, row=2, sticky='nes', padx=(0, 5))
+        f1.grid(column=1, row=0, sticky='nes', padx=(0, 5))
 
-        self.start_button.grid(column=2, row=0, rowspan=3, sticky='news')
+        self.start_button.grid(column=2, row=0, sticky='news')
         
-        up.pack(fill='both', side='top', padx=5, pady=5)
+        f.pack(fill='both', side='top', padx=5, pady=5)
 
     # Next Song
     def nextSong_init(self):
         # Frame
-        mid = ttk.Frame(self.leftFrame)
-        mid.columnconfigure(0, minsize=90)
-        mid.columnconfigure(1, weight=1)
-        mid1 = ttk.Frame(mid)
-        mid2 = ttk.Frame(mid)
+        f = ttk.Frame(self.leftFrame)
+        f.columnconfigure(0, minsize=90)
+        f.columnconfigure(1, weight=1)
+        f1 = ttk.Frame(f)
+        f2 = ttk.Frame(f)
 
         # Variables
         self.chk_var = IntVar(value=0)
@@ -142,59 +143,89 @@ class Window(Tk):
         self.song_str.trace('w', self.update_songlist)
 
         # Input
-        self.input = ttk.Entry(mid, textvariable=self.song_str, state='disabled')
+        self.input = ttk.Entry(f, textvariable=self.song_str, state='disabled')
         
         # Checkbox
-        self.chk = ttk.Checkbutton(mid1, variable=self.chk_var, state='disabled', command=self.additional)
+        self.chk = ttk.Checkbutton(f1, variable=self.chk_var, state='disabled', command=self.additional)
 
         # Combobox
-        self.cb_1 = ttk.Combobox(mid1, values=initials, state='disabled', exportselection=0)
+        self.cb_1 = ttk.Combobox(f1, values=initials, state='disabled', exportselection=0)
         self.cb_1.current(0)
 
         # Listbox with Scrollbar
-        self.lb = Listbox(mid2, listvariable=StringVar(value=self.song_names), activestyle='none', selectmode='browse', state='disabled', exportselection=0, height=15)
-        self.scroll = ttk.Scrollbar(mid2, orient='vertical', command=self.lb.yview)
+        self.lb = Listbox(f2, listvariable=StringVar(value=self.song_names), activestyle='none', 
+            selectmode='browse', state='disabled', exportselection=0, height=15)
+        self.scroll = ttk.Scrollbar(f2, orient='vertical', command=self.lb.yview)
         self.lb['yscrollcommand'] = self.scroll.set
         self.lb.bind('<<ListboxSelect>>', lambda e: self.add_button.configure(state='normal'))
 
         # Buttons
-        self.add_button = ttk.Button(mid, text='곡 추가', state='disabled', command=self.add_song)
-        self.pause_button = ttk.Button(mid, text='일시정지', state='disabled', command=self.pause_game)
-        self.edit_button = ttk.Button(mid, text='곡 수정', state='disabled', command=self.edit_initial)
+        self.add_button = ttk.Button(f, text='곡 추가', state='disabled', command=self.add_song)
+        self.pause_button = ttk.Button(f, text='일시정지', state='disabled', command=self.pause_game)
+        self.edit_button = ttk.Button(f, text='곡 수정', state='disabled', command=self.edit_initial)
 
         # Placing
-        ttk.Label(mid, text='곡 제목').grid(column=0, row=0, sticky='news', pady=(0, 5))
-        ttk.Label(mid, text='알파벳 룰렛').grid(column=0, row=1, sticky='news', pady=(0, 5))
+        ttk.Label(f, text='곡 제목').grid(column=0, row=0, sticky='news', pady=(0, 5))
+        ttk.Label(f, text='알파벳 룰렛').grid(column=0, row=1, sticky='news', pady=(0, 5))
 
         self.input.grid(column=1, row=0, sticky='nwes', pady=(0, 5))
         self.chk.pack(side='left')
         self.cb_1.pack(fill='x', side='right', expand=1)
-        mid1.grid(column=1, row=1, sticky='nwes', pady=(0, 5))
+        f1.grid(column=1, row=1, sticky='nwes', pady=(0, 5))
 
         self.lb.pack(fill='both', side='left', expand=1)
         self.scroll.pack(fill='y', side='right')
-        mid2.grid(column=0, row=2, columnspan=2, sticky='nswe', pady=(0, 5))
+        f2.grid(column=0, row=2, columnspan=2, sticky='nswe', pady=(0, 5))
 
         self.add_button.grid(column=1, row=3, sticky='news', pady=(0, 5))
         self.pause_button.grid(column=0, row=3, rowspan=2, sticky='news', padx=(0, 5))
         self.edit_button.grid(column=1, row=4, sticky='news')
 
-        mid.pack(fill='both', side='top', padx=5, pady=5)
+        f.pack(fill='both', side='top', padx=5, pady=5)
+
+    def countdown_init(self):
+        f = ttk.Frame(self.leftFrame)
+        f.columnconfigure(0, weight=1)
+        f.columnconfigure(1, weight=1)
+        f.rowconfigure(0, minsize=50)
+
+        self.plus_b = ttk.Button(f, text='플러스 1곡', command=self.add_count, state='disabled')
+        self.minus_b = ttk.Button(f, text='마이너스 1곡', command=self.sub_count, state='disabled')
+        
+        self.plus_b.grid(column=0, row=0, sticky='nswe', padx=(0, 5))
+        self.minus_b.grid(column=1, row=0, sticky='nswe', padx=(5, 0))
+
+        f.pack(fill='both', side='top', padx=5, pady=5)
+
+    def add_count(self):
+        self.songcount += 1
+        self.label4['text'] = '{}곡 남음'.format(self.songcount)
+
+    def sub_count(self):
+        self.songcount -= 1
+        self.label4['text'] = '{}곡 남음'.format(self.songcount)
+        if self.songcount == 0:
+            self.timerBool = False
+            self.pauseBool = False
+            self.input_reset()
+            self.input_switch(False)
 
     # Remaining
     def rem_init(self):
         # Frame
-        down = ttk.Frame(self.rightFrame)
-        down.columnconfigure(0, weight=1)
+        f = ttk.Frame(self.rightFrame)
+        f.columnconfigure(0, weight=1)
 
         # Labels
-        self.label3 = ttk.Label(down, font=self.font1, text='퇴근까지 걸린 시간')
-        self.label4 = ttk.Label(down, font=self.font2, text='00:00:00')
+        ttk.Label(f, font=self.font1, text='퇴근까지 걸린 시간').grid(column=0, row=0)
+        ttk.Label(f, font=self.font1, text='퇴근까지 앞으로').grid(column=0, row=2)
 
-        # Placing
-        self.label3.grid(column=0, row=0)
-        self.label4.grid(column=0, row=1)
-        down.pack(fill='both', side='top', pady=10)
+        self.label3 = ttk.Label(f, font=self.font2, text='00:00:00')
+        self.label4 = ttk.Label(f, font=self.font2, text='{}곡 남음'.format(self.num_songs.get()))
+
+        self.label3.grid(column=0, row=1)
+        self.label4.grid(column=0, row=3)
+        f.pack(fill='both', side='top', pady=10)
 
     # Current Song (Marquee)
     def currSong_init(self):
@@ -218,17 +249,6 @@ class Window(Tk):
 
     # Methods
     # Functions linked to modules and variables (Need optimization)
-
-    # change_mode: Changes gamemode
-    def change_mode(self):
-        if self.game_mode.get() == 0:   # FFA
-            self.label3['text'] = '퇴근까지 걸린 시간'
-            self.label4['text'] = '00:00:00'
-            self.sb['state'] = 'disabled'
-        else:       # TM
-            self.label3['text'] = '레진 정산까지'
-            self.label4['text'] = '{}곡 남음'.format(self.num_songs.get())
-            self.sb['state'] = 'readonly'
 
     # change_num: Changes number of songs to play (TM Only)
     def change_num(self):
@@ -272,7 +292,7 @@ class Window(Tk):
             hrs =  total_time// 3600
             mins = (total_time % 3600) // 60
             secs = total_time % 60
-            self.label4['text'] = '{:02}:{:02}:{:02}'.format(hrs, mins, secs)
+            self.label3['text'] = '{:02}:{:02}:{:02}'.format(hrs, mins, secs)
             if self.pauseBool:
                 self.start_time = time.time() - total_time
             self.after(1, self.timer)
@@ -323,33 +343,20 @@ class Window(Tk):
     def mode_switch(self, state=True):
         if state == True:   # Enable gamemode
             self.start_button['text'] = '출근'
-            self.rb_1['state'] = 'normal'
-            self.rb_2['state'] = 'normal'
-
-            if self.game_mode.get() == 0:   # FFA
-                self.label4['text'] = '00:00:00'
-                self.curr_time = 0
-            else:   # TM
-                self.sb['state'] = 'readonly'
-                self.label4['text'] = '{}곡 남음'.format(self.num_songs.get())
+            self.label3['text'] = '00:00:00'
+            self.label4['text'] = '{}곡 남음'.format(self.num_songs.get())
+            self.curr_time = 0
+            self.sb['state'] = 'readonly'
 
         else:   # Disable gamemode
-            self.rb_1['state'] = 'disabled'
-            self.rb_2['state'] = 'disabled'
             self.sb['state'] = 'disabled'
+            self.start_button['text'] = '퇴근'
+            self.pause_button['state'] = 'normal'
 
-            if self.game_mode.get() == 0:   # FFA
-                self.start_button['text'] = '퇴근'
-                self.pause_button['state'] = 'normal'
-
-                self.start_time = time.time()
-                self.timerBool = True
-                self.timer()
-            else:   # TM
-                self.start_button['text'] = '리셋'
-                self.start_button['state'] = 'disabled'
-
-                self.songcount = self.num_songs.get()
+            self.start_time = time.time()
+            self.timerBool = True
+            self.timer()
+            self.songcount = self.num_songs.get()
 
     # input_reset: Clears self.input and deselects any item in self.lb
     def input_reset(self):
@@ -372,6 +379,10 @@ class Window(Tk):
             self.input['state'] = 'normal'
             self.chk['state'] = 'normal'
             self.lb['state'] = 'normal'
+            
+            self.plus_b['state'] = 'normal'
+            self.minus_b['state'] = 'normal'
+
         else:   # Disable input
             self.input['state'] = 'disabled'
             self.chk['state'] = 'disabled'
@@ -385,6 +396,12 @@ class Window(Tk):
             self.can1.itemconfig('ni', text='끝')
 
             self.edit_button['state'] = 'disabled'
+
+            self.plus_b['state'] = 'disabled'
+            self.minus_b['state'] = 'disabled'
+
+            mixer.music.play()
+            self.label4['text'] = '0곡 남음'
 
     # Child Window
     # For editting the end letter
@@ -500,6 +517,7 @@ class Window(Tk):
                 self.input_switch(False)
 
         elif self.start_button['text'] == '리셋':   # Reset Game
+            mixer.music.stop()
             self.mode_switch(True)
             
             # Current Song
@@ -596,13 +614,6 @@ class Window(Tk):
                     self.marquee2()
             else:
                 self.can2.coords('sl', 122, 10 + (pos2[3] - pos2[1]) // 2)
-                
-            # Countdown (TM Only)
-            if self.game_mode.get() == 1:
-                self.songcount -= 1
-                self.label4['text'] = '{}곡 남음'.format(self.songcount)
-                if self.songcount == 0:
-                    self.input_switch(False)
 
 if __name__ == '__main__':
     app = Window()
